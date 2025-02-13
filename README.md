@@ -1,3 +1,17 @@
+**Q: What is supervised learning using image‑text pairs?**  
+**A:** In supervised learning, the image‑text pairs are treated as ground truth—meaning the captions were created or verified by humans. The model is trained to predict these human-provided captions exactly as they are. The training signal (the caption) is considered correct and comes from an external, manually curated source.
+
+**Q: What is self‑supervised learning using image‑text pairs?**  
+**A:** In self‑supervised learning, even though you have image‑text pairs, the model doesn’t treat the provided text as the final, fixed label. Instead, it uses the natural relationship between the image and text to create its own training task (a “pretext task”). For example, the model might mask part of the text and learn to predict the missing words, or it might learn to generate the caption based on other parts of the data without relying on any extra human curation.
+
+**Q: So if both methods use image‑text pairs, what’s the difference?**  
+**A:** The key difference is in the source and use of the training signal:  
+- In **supervised learning**, the captions are seen as authoritative labels provided by humans, and the model is directly trained to reproduce these exact captions.  
+- In **self‑supervised learning**, the model leverages the inherent structure within the image‑text data to create its own training signals (like masking parts of the text and predicting them). It doesn’t depend on additional human-generated labels, but rather uses the natural pairing as a starting point to learn useful representations.  
+
+Thus, even with image‑text pairs, supervised learning relies on externally provided, trusted labels, whereas self‑supervised learning creates its own challenges from the data to learn without extra human annotation.
+
+
 If you have **1,000 raw images without labels**, you can use **Self-Supervised Learning (SSL)** to build a **highly accurate image captioning model**. Since SSL does not rely on human-labeled data, the key idea is to train a model to learn **useful visual representations** first and then fine-tune it for captioning.  
 
 ---
