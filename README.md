@@ -81,3 +81,12 @@ If needed, **fine-tuning** can be done on a smaller labeled dataset (e.g., COCO 
 
 Self-supervised learning on the COCO2017 dataset offers a way to leverage vast amounts of image-text data without relying on human-provided annotations. By designing tasks like image-text matching, masked language modeling, contrastive learning, and image feature reconstruction, the model learns to extract rich, meaningful representations from both images and text, setting the foundation for downstream tasks such as image captioning or visual question answering.
 
+The training process stopped at **Epoch 18** instead of completing all **50 epochs** because of the **early stopping mechanism** implemented in your code. Let me explain why this happened and how early stopping works in your case.
+
+---
+
+### **What is Early Stopping?**
+
+Early stopping is a regularization technique used to prevent overfitting during training. It monitors the model's performance on a validation set and stops training when the performance stops improving. This helps avoid wasting computational resources and prevents the model from overfitting to the training data.
+
+---
