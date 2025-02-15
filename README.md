@@ -90,3 +90,5 @@ The training process stopped at **Epoch 18** instead of completing all **50 epoc
 Early stopping is a regularization technique used to prevent overfitting during training. It monitors the model's performance on a validation set and stops training when the performance stops improving. This helps avoid wasting computational resources and prevents the model from overfitting to the training data.
 
 ---
+
+Video Help: https://www.youtube.com/watch?v=u0HG77RNhPE
