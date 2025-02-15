@@ -92,3 +92,9 @@ Early stopping is a regularization technique used to prevent overfitting during 
 ---
 
 Video Help: https://www.youtube.com/watch?v=u0HG77RNhPE
+
+---
+
+Provided Code: This code implements Version 17 (Hybrid) optimized for limited hardware resources, leveraging smaller models (blip-image-captioning-small and DistilRoBERTa) and efficient training strategies.
+
+---
