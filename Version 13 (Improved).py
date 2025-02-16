@@ -32,6 +32,7 @@ def create_positive_negative_pairs(captions_data):
 positive_pairs, negative_pairs = create_positive_negative_pairs(captions_data)
 _pairs = positive_pairs + negative_pairs
 random.shuffle(_pairs)
+
 train_pairs, test_pairs = train_test_split(_pairs, test_size=0.2, random_state=42)
 train_pairs, val_pairs = train_test_split(train_pairs, test_size=0.25, random_state=42)
 
@@ -166,8 +167,9 @@ optimizer = optim.AdamW(
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
 loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
 early_stopping = EarlyStopping(patience=5)
+
 num_epochs = 50
-scaler = torch.amp.GradScaler("cuda")
+scaler = torch.cuda.amp.GradScaler()
 
 for epoch in range(num_epochs):
     clip_model.train()
@@ -178,7 +180,7 @@ for epoch in range(num_epochs):
     for raw_images, captions, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}", leave=False):
         optimizer.zero_grad()
         raw_images = raw_images.to(device)
-        with torch.amp.autocast("cuda"):
+        with torch.cuda.amp.autocast():
             image_features, text_features = batch_extract_features(raw_images, captions, device)
             projected_image, projected_text = project_to_shared_space(image_features, text_features)
             similarity = compute_similarity(projected_image, projected_text)
@@ -207,6 +209,7 @@ for epoch in range(num_epochs):
             val_loss += loss.item()
     avg_val_loss = val_loss / len(val_loader)
     scheduler.step(avg_val_loss)
+    
     state = {
         "clip_model": clip_model.state_dict(),
         "text_encoder": text_encoder.state_dict(),
@@ -242,4 +245,5 @@ def evaluate(loader):
 train_accuracy = evaluate(train_loader)
 val_accuracy = evaluate(val_loader)
 test_accuracy = evaluate(test_loader)
+
 print(f"Train Accuracy: {train_accuracy}, Val Accuracy: {val_accuracy}, Test Accuracy: {test_accuracy}")
