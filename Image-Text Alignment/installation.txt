@@ -1,0 +1,4 @@
+conda create --name SSL python=3.9
+conda activate SSL
+conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
+pip install git+https://github.com/huggingface/transformers
