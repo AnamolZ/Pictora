@@ -2,18 +2,52 @@
 ##### Directory Structure
 ```
 Pictora/
+├── captions/
+│   ├── averageConfidence.png
+│   ├── filtered_captions.json
+│   └── unfilteredCaption.json
+├── freemiumModel/
+│   ├── caption_generator.py
+│   ├── clip_scorer.py
+│   ├── feature_extractor.py
+│   ├── freemiumModel.py
+│   ├── freemiumModelAPI.py
+│   └── model_builder.py
+├── modelCreation/
+│   ├── data_generator.py
+│   ├── description.py
+│   ├── feature_extractor.py
+│   ├── model_builder.py
+│   ├── modelCreation.py
+│   ├── pipeline.py
+│   ├── sequence_generator.py
+│   └── tokenizer_manager.py
+├── models/
+│   ├── modelV1.1.h5
+│   └── yolo12n.pt
+├── pre_processor/
+│   ├── get_pseudo_caption.ipynb
+│   └── pre_processing.ipynb
+├── premiumModel/
+│   ├── clip_score.py
+│   ├── extract_features.py
+│   ├── generate_caption.py
+│   ├── model.py
+│   ├── premiumModel.py
+│   ├── premiumModelAPI.py
+│   └── train.py
+├── processed/
+│   ├── descriptions.txt
+│   ├── features.p
+│   └── tokenizer.p
 ├── training_data/
 │   ├── dataset/
-│   │   ├── img1.jpg
-│   │   ├── img2.jpg
-│   │   └── ...
-│   └── pseudo_caption/
-│       └── pseudo_caption.txt
-├── train_model.ipynb
-├── models/
-├── procedded/
-├── testImage/
-└── README.md
+│   └── pseudo_caption/pseudo_caption.txt
+├── main.py
+├── README.md
+├── requirements.txt
+└── testImages/
+
 ```
 
 Installation Instruction: GPU Support for Library Use
