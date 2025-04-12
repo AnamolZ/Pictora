@@ -1,0 +1,6 @@
+python-multipart
+fastapi
+uvicorn
+pillow
+
+# python -B -m uvicorn main:app --reload
