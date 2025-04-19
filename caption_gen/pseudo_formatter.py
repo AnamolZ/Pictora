@@ -1,22 +1,25 @@
-import csv
-from collections import defaultdict
+def parse_pseudo_caption_to_csv(input_txt, output_csv):
+    try:
+        with open(input_txt, 'r', encoding='utf-8') as txt_file, open(output_csv, 'w', encoding='utf-8', newline='') as csv_file:
+            csv_file.write("image,caption\n")
+            next(txt_file)
+            for line in txt_file:
+                line = line.strip()
+                if line:
+                    parts = line.split(',', 1)
+                    if len(parts) == 2:
+                        image_part = parts[0].strip()
+                        image_name = image_part.split()[-1]
+                        caption = parts[1].strip()
+                        csv_file.write(f"{image_name}, {caption}\n")
+                    else:
+                        print(f"Skipping invalid line: {line}")
+        return True
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
 
-input_file = "pseudo_caption/pseudo_caption.txt"
-output_file = "../training_data/pseudo_caption/pseudo_caption.txt"
-
-captions_by_image = defaultdict(list)
-
-with open(input_file, "r", encoding="utf-8") as infile:
-    for line in infile:
-        if "#0\t" in line:
-            parts = line.strip().split("#0\t", 1)
-            if len(parts) == 2:
-                image_id, caption = parts
-                captions_by_image[image_id.strip()].append(caption.strip())
-
-with open(output_file, "w", encoding="utf-8", newline='') as outfile:
-    writer = csv.writer(outfile)
-    writer.writerow(["image", "caption"])
-    for image_id, captions in captions_by_image.items():
-        for caption in captions:
-            writer.writerow([image_id, f" {caption}"])
+if __name__ == "__main__":
+    input_file = "../train_model/training_data/pseudo_caption/pseudo_caption.csv"
+    output_file = "../train_model/training_data/pseudo_caption/pseudo_caption.txt"
+    parse_pseudo_caption_to_csv(input_file, output_file)

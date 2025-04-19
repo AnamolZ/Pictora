@@ -134,8 +134,8 @@ class ImageCaptioningSystem:
 
 if __name__ == "__main__":
     image_captioning_system = ImageCaptioningSystem(
-        images_path=Path("training_data/dataset"),
-        model_path=Path("models/flan-t5-large"),
-        output_csv=Path("pseudo_caption.csv"),
+        images_path=Path("../train_model/training_data/dataset"),
+        model_path=Path("../use_model/models/flan-t5-large"),
+        output_csv=Path("../train_model/training_data/pseudo_caption/pseudo_caption.csv"),
     )
     image_captioning_system.run()
