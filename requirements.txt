@@ -4,3 +4,5 @@ uvicorn
 pillow
 
 # python -B -m uvicorn main:app --reload
+# Get-Process python
+# Stop-Process -Id 16652

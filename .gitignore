@@ -1,1 +1,11 @@
+# Ignore Hugging Face cache or credentials
 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/
+
+# Ignore .env files (both root and in login/)
+.env
+login/.env
+
+# Ignore training data directory inside train_model/
+train_model/training_data/
+use_model/models/blip
+use_model/models/flan-t5-large

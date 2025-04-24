@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pictora</title>
+    <link rel="stylesheet" href="/styles/variables.css" />
+    <link rel="stylesheet" href="/styles/main.css" />
+    <link rel="stylesheet" href="/styles/animations.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="logo-container">
+          <div class="logo-icon">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <h1>Pictora</h1>
+        </div>
+        <div class="header-actions">
+          <button id="payment-button" class="icon-button payment-button" aria-label="Open payment options">
+            <svg class="payment-icon" viewBox="0 0 24 24" width="20" height="20">
+              <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+            </svg>
+          </button>
+          <button id="theme-button" class="icon-button" aria-label="Toggle dark/light mode">
+            <svg class="sun-icon" viewBox="0 0 24 24" width="24" height="24">
+              <path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm0-16a1 1 0 0 1 1 1v2a1 1 0 0 1-2 0V4a1 1 0 0 1 1-1zm0 16a1 1 0 0 1 1 1v2a1 1 0 0 1-2 0v-2a1 1 0 0 1 1-1zM4 12a1 1 0 0 1 1-1h2a1 1 0 0 1 0 2H5a1 1 0 0 1-1-1zm14 0a1 1 0 0 1 1-1h2a1 1 0 0 1 0 2h-2a1 1 0 0 1-1-1zM5.9 5.9a1 1 0 0 1 1.4 0l1.4 1.4a1 1 0 0 1-1.4 1.4L5.9 7.3a1 1 0 0 1 0-1.4zm9.9 9.9a1 1 0 0 1 1.4 0l1.4 1.4a1 1 0 0 1-1.4 1.4l-1.4-1.4a1 1 0 0 1 0-1.4zM18.1 5.9a1 1 0 0 1 0 1.4l-1.4 1.4a1 1 0 0 1-1.4-1.4l1.4-1.4a1 1 0 0 1 1.4 0zM8.2 15.8a1 1 0 0 1 0 1.4l-1.4 1.4a1 1 0 0 1-1.4-1.4l1.4-1.4a1 1 0 0 1 1.4 0z"/>
+            </svg>
+            <svg class="moon-icon" viewBox="0 0 24 24" width="24" height="24">
+              <path d="M10 7a7 7 0 0 0 12 4.9v.1c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2h.1A6.979 6.979 0 0 0 10 7zm-6 5a8 8 0 0 0 15.062 3.762A9 9 0 0 1 8.238 4.938 7.999 7.999 0 0 0 4 12z"/>
+            </svg>
+          </button>
+
+          <div id="auth-section" style="text-align: center;">
+            {% if user %}
+              <div id="profile-picture-container">
+                <img src="{{ user.profile_pic }}" alt="Profile" width="40" height="40" style="border-radius: 50%;"/>
+              </div>
+              <a href="/logout" id="logout-link" style="display: inline-block; margin-top: 4px; font-size: 12px; color: white; text-decoration: none;">Logout</a>
+              <script>
+                localStorage.setItem('userEmail', '{{ user.email }}');
+                localStorage.setItem('userPhoto', '{{ user.profile_pic }}');
+              </script>
+            {% else %}
+              <div id="profile-picture-container">
+                <svg viewBox="0 0 24 24" width="40" height="40">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </div>
+              <a href="/login" id="login-link" style="display: inline-block; margin-top: 4px; font-size: 12px; color: white; text-decoration: none;">Login</a>
+            {% endif %}
+          </div>
+                          
+        </div>
+      </header>
+
+      <main>
+        <div class="subtitle">
+          <p>Generate image captions using AI for free online.</p>
+        </div>
+
+        <section class="upload-section">
+          <h2>Upload Image</h2>
+          <div id="upload-container" class="upload-container">
+            <div id="upload-area" class="upload-area">
+              <svg class="upload-icon" width="48" height="48" viewBox="0 0 24 24">
+                <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z" transform="rotate(90 12 12)" />
+              </svg>
+              <p class="upload-text">Click to upload or drag and drop</p>
+              <p class="upload-formats">PNG, JPG, GIF, HEIC</p>
+            </div>
+            <input type="file" id="file-input" accept="image/*" hidden />
+          </div>
+
+          <div id="image-preview-container" class="image-preview-container hidden">
+            <div class="preview-header">
+              <h3>Preview</h3>
+              <button id="change-image-btn" class="text-button">Change</button>
+            </div>
+            <div class="image-preview">
+              <img id="image-preview" src="" alt="Uploaded image preview" />
+            </div>
+          </div>
+        </section>
+
+        <section class="options-section">
+          <div class="option">
+            <label for="language-select">Select Language</label>
+            <div class="select-wrapper">
+              <select id="language-select">
+                <option value="en">English (US)</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="ne">Nepali</option>
+              </select>
+              <svg class="select-arrow" width="20" height="20" viewBox="0 0 24 24">
+                <path d="M7 10l5 5 5-5z" />
+              </svg>
+            </div>
+          </div>
+        </section>
+
+        <button id="generate-btn" class="generate-btn" disabled>
+          <span class="btn-text">Generate Captions</span>
+          <div class="loading-spinner hidden"></div>
+        </button>
+
+        <section id="results-section" class="results-section hidden">
+          <h2>Generated Captions</h2>
+          <div class="results-container">
+            <div id="captions-list" class="captions-list"></div>
+            <div class="results-actions">
+              <button id="copy-all-btn" class="action-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                </svg>
+                Copy All
+              </button>
+              <button id="download-btn" class="action-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24">
+                  <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                </svg>
+                Download
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>&copy; 2025 Pictora Caption Image</p>
+      </footer>
+    </div>
+
+    <!-- Payment Page -->
+    <div id="payment-page" class="payment-page">
+      <div class="payment-content">
+        <div class="payment-header">
+          <h2>Choose Your Plan</h2>
+          <button id="close-payment" class="close-button" aria-label="Close payment page">×</button>
+        </div>
+        <div class="pricing-cards">
+          <div class="pricing-card" data-plan="basic" data-price="9">
+            <h3>Basic</h3>
+            <div class="price">$9<span>/month</span></div>
+            <ul class="features">
+              <li>50 captions/month</li>
+              <li>Basic AI model</li>
+              <li>Email support</li>
+            </ul>
+            <button class="select-plan-btn">Select Plan</button>
+          </div>
+          <div class="pricing-card popular" data-plan="pro" data-price="19">
+            <div class="popular-badge">Most Popular</div>
+            <h3>Pro</h3>
+            <div class="price">$19<span>/month</span></div>
+            <ul class="features">
+              <li>200 captions/month</li>
+              <li>Advanced AI model</li>
+              <li>Priority support</li>
+              <li>Caption editing</li>
+            </ul>
+            <button class="select-plan-btn">Select Plan</button>
+          </div>
+          <div class="pricing-card" data-plan="enterprise" data-price="49">
+            <h3>Enterprise</h3>
+            <div class="price">$49<span>/month</span></div>
+            <ul class="features">
+              <li>Unlimited captions</li>
+              <li>Premium AI model</li>
+              <li>24/7 support</li>
+              <li>API access</li>
+              <li>Custom features</li>
+            </ul>
+            <button class="select-plan-btn">Select Plan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>

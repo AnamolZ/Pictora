@@ -1,0 +1,98 @@
+:root {
+    /* Colors - Dark Theme (Default) */
+    --color-background: #121418;
+    --color-surface: #1e2028;
+    --color-surface-variant: #2a2d38;
+    --color-primary: #ee7766;
+    --color-primary-hover: #ff8877;
+    --color-primary-active: #dd6655;
+    --color-secondary: #5e81f4;
+    --color-accent: #7f5af0;
+    --color-success: #48bb78;
+    --color-warning: #f6ad55;
+    --color-error: #e53e3e;
+    --color-text-primary: rgba(255, 255, 255, 0.95);
+    --color-text-secondary: rgba(255, 255, 255, 0.75);
+    --color-text-tertiary: rgba(255, 255, 255, 0.55);
+    --color-border: rgba(255, 255, 255, 0.15);
+    --color-button-text: #ffffff;
+    --color-shadow: rgba(0, 0, 0, 0.5);
+  
+    /* Spacing */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-xxl: 48px;
+  
+    /* Typography */
+    --font-family: 'SF Pro Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-size-xs: 0.75rem;   /* 12px */
+    --font-size-sm: 0.875rem;  /* 14px */
+    --font-size-md: 1rem;      /* 16px */
+    --font-size-lg: 1.125rem;  /* 18px */
+    --font-size-xl: 1.5rem;    /* 24px */
+    --font-size-xxl: 2rem;     /* 32px */
+    --font-size-xxxl: 2.5rem;  /* 40px */
+    
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    
+    --line-height-body: 1.5;
+    --line-height-heading: 1.2;
+  
+    /* Borders */
+    --border-radius-sm: 4px;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --border-width: 1px;
+    --border-width-thick: 2px;
+  
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+  
+    /* Transitions */
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+    --transition-slow: 350ms ease;
+  
+    /* Z-index */
+    --z-index-dropdown: 1000;
+    --z-index-modal: 2000;
+    --z-index-toast: 3000;
+  }
+  
+  /* Light Theme */
+  .light-theme {
+    --color-background: #f5f7fa;
+    --color-surface: #ffffff;
+    --color-surface-variant: #edf2f7;
+    --color-primary: #e05d44;
+    --color-primary-hover: #d04c33;
+    --color-primary-active: #c03c23;
+    --color-secondary: #4c6ef5;
+    --color-accent: #6938ef;
+    --color-success: #38a169;
+    --color-warning: #dd6b20;
+    --color-error: #e53e3e;
+    --color-text-primary: rgba(0, 0, 0, 0.87);
+    --color-text-secondary: rgba(0, 0, 0, 0.6);
+    --color-text-tertiary: rgba(0, 0, 0, 0.38);
+    --color-border: rgba(0, 0, 0, 0.12);
+    --color-button-text: #ffffff;
+    --color-shadow: rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Media Queries */
+  @media (max-width: 480px) {
+    :root {
+      --space-lg: 20px;
+      --space-xl: 28px;
+      --space-xxl: 40px;
+      --font-size-xxxl: 2rem;
+    }
+  }

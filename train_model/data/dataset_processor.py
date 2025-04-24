@@ -11,7 +11,7 @@ class DataProcessor:
 
     def split(self, loader, ratio=0.8):
         captions = loader.load_caps()
-        keys = [k for k, v in captions.items() if len(v) == 5]
+        keys = [k for k, v in captions.items() if len(v) == 1]
         random.shuffle(keys)
         split_idx = int(len(keys) * ratio)
         train_split = {k: captions[k] for k in keys[:split_idx]}

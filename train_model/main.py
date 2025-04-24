@@ -91,7 +91,7 @@ history = model.fit(
     callbacks=callbacks
 )
 
-model_path = '../use_model/models/caption'
+model_path = '../use_model/models/captionTest'
 if os.path.exists(model_path):
     shutil.rmtree(model_path)
 

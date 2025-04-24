@@ -21,7 +21,7 @@ class DataLoader:
     def create_ds(self, caps):
         paths, cap_list = [], []
         for key, cap in caps.items():
-            if len(cap) == 5:
+            if len(cap) == 1:
                 paths.append(str(self.img_dir / key))
                 cap_list.append(cap)
         return tf.data.Dataset.from_tensor_slices((paths, cap_list))
