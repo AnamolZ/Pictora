@@ -15,11 +15,14 @@ import shutil
 
 from threading import Lock
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Query, Depends, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
+
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import secrets
 
 from googletrans import Translator
 
@@ -41,21 +44,13 @@ from config import GOOGLE_CLIENT_SECRET, GOOGLE_CLIENT_ID
 from settings import ESEWA_SECRET_KEY, ESEWA_PRODUCT_CODE, ESEWA_STATUS_URL
 from database_config import payments
 
-from fastapi.middleware.cors import CORSMiddleware
-
 app = FastAPI()
+security = HTTPBearer()
+
 app.mount("/styles", StaticFiles(directory=os.path.join(BASE_DIR, "styles")), name="styles")
-app.mount("/js", StaticFiles(directory=os.path.join(BASE_DIR, "scripts")), name="scripts")
+app.mount("/scripts", StaticFiles(directory=os.path.join(BASE_DIR, "scripts")), name="scripts")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.add_middleware(SessionMiddleware, secret_key=GOOGLE_CLIENT_SECRET)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 oauth = OAuth()
 oauth.register(
@@ -106,15 +101,35 @@ async def auth(request: Request):
         token = await oauth.google.authorize_access_token(request)
     except OAuthError:
         return templates.TemplateResponse("index.html", {"request": request})
+    
     user = token.get("userinfo")
+    
     if not user:
         raise HTTPException(status_code=400, detail="Unable to fetch user info")
+    
     email = user["email"]
+    name = user["name"]
+
     request.session["email"] = email
-    request.session["profile_pic"] = user.get("picture")
+    request.session["name"] = name
+    
     if not payments.find_one({"email": email}):
-        payments.insert_one({"status": False, "transaction_uuid": "", "total_amount": 0, "api_request": 5, "email": email})
-    return templates.TemplateResponse("index.html", {"request": request, "user": {"email": email, "profile_pic": request.session["profile_pic"]}})
+        payments.insert_one({
+            "status": False, 
+            "transaction_uuid": "", 
+            "total_amount": 0, 
+            "api_request": 5, 
+            "email": email,
+            "token": secrets.token_urlsafe(32)
+        })
+    else:
+        user_email = payments.find_one({"email": email})
+        token = user_email.get("token")
+
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "user": {"email": email, "name": name, "token": token}
+    })
 
 @app.get("/logout")
 async def logout(request: Request):
@@ -123,9 +138,27 @@ async def logout(request: Request):
     resp.delete_cookie("session", path="/")
     return resp
 
+async def valid_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    user_email = payments.find_one({"token": token})
+    if user_email:
+        return True
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    user_name = request.session.get("name")
+    user_email = request.session.get("email")
+    
+    user = None
+
+    if user_name and user_email:
+        use_email = payments.find_one({"email": user_email})
+        if use_email:
+            token = use_email.get("token")
+            user = {"name": user_name, "email": user_email, "token": token}
+
+    return templates.TemplateResponse("index.html", {"request": request, "user": user})
 
 async def translate_caption(text: str, target_lang: str) -> str:
     if not text or not target_lang:
@@ -138,11 +171,11 @@ async def translate_caption(text: str, target_lang: str) -> str:
         raise RuntimeError(f"Translation failed: {str(e)}")
 
 @app.post("/process")
-async def process_image(request: Request, file: UploadFile = File(...)):
+async def process_image(request: Request, file: UploadFile = File(...), _=Depends(valid_token)):
     form = await request.form()
     selected_language = form.get("language")
-
     img = await file.read()
+
     if not img:
         raise HTTPException(status_code=400, detail="No image content")
 
@@ -155,6 +188,7 @@ async def process_image(request: Request, file: UploadFile = File(...)):
 
     if email:
         user = payments.find_one({"email": email})
+        
         if not user:
             raise HTTPException(status_code=404, detail="No user found")
 
@@ -167,23 +201,39 @@ async def process_image(request: Request, file: UploadFile = File(...)):
                 tmp.write(img)
                 path = tmp.name
             caption = PremiumModelRunner(path).run()
+
             if not caption:
                 raise HTTPException(status_code=500, detail="Model error")
+            
             payments.update_one({"email": email}, {"$inc": {"total_amount": -1}})
             model_used = "premium"
             remaining = total_amount - 1
             message = f"Using Premium model. Remaining premium quota: {remaining}"
             is_premium = True
 
+            if selected_language and selected_language.lower() != "en":
+                if is_premium:
+                    try:
+                        caption = await translate_caption(caption, selected_language)
+                    except Exception as e:
+                        message += f" (Translation failed: {str(e)})"
+                        return {"message": message}
+                else:
+                    message += " Translation is available for premium members only."
+                    return {"message": message}
+
         elif api_request > 0:
             if status and total_amount == 0:
                 message = "Switched to Freemium: Premium quota exhausted. "
+
             with NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
                 tmp.write(img)
                 path = tmp.name
             caption = callfreemiumModel(path)
+
             if not caption:
                 raise HTTPException(status_code=500, detail="Model error")
+            
             payments.update_one({"email": email}, {"$inc": {"api_request": -1}})
             model_used = "freemium"
             message += f"Using Freemium model. Remaining freemium quota: {api_request - 1}"
@@ -197,26 +247,22 @@ async def process_image(request: Request, file: UploadFile = File(...)):
     else:
         ip = request.client.host
         rec = _anon_quota(ip)
+
         if rec["quota"] <= 0:
             return {"message": "Anonymous quota exhausted. Wait 5 minutes for reset."}
+        
         with NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
             tmp.write(img)
             path = tmp.name
+
         caption = callfreemiumModel(path)
+
         if not caption:
             raise HTTPException(status_code=500, detail="Model error")
+        
         rec["quota"] -= 1
         message = f"Using Freemium model as anonymous user. Remaining quota: {rec['quota']}"
         model_used = "freemium"
-
-    if selected_language and selected_language.lower() != "en":
-        if is_premium:
-            try:
-                caption = await translate_caption(caption, selected_language)
-            except Exception as e:
-                message += f" (Translation failed: {str(e)})"
-        else:
-            message += " Translation is available for premium members only."
 
     return {
         "caption": caption,
@@ -224,16 +270,26 @@ async def process_image(request: Request, file: UploadFile = File(...)):
         "model": model_used
     }
 
-
 @app.post("/batchprocessor")
 async def batch_processor(request: Request, file: UploadFile = File(...)):
+
+    custom_temp_dir = "log"
+    temp_dir_log = os.path.join(BASE_DIR, custom_temp_dir)
+
+    if os.path.exists(temp_dir_log):
+        shutil.rmtree(temp_dir_log)
+
+    email = request.session.get("email")
+    if not email:
+        raise HTTPException(status_code=403, detail="This feature is only available to logged-in premium users.")
+
     form = await request.form()
     selected_language = form.get("language")
 
     if not file.filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Only ZIP files are accepted.")
 
-    temp_dir = f"/tmp/{uuid4().hex}"
+    temp_dir = os.path.join(BASE_DIR, custom_temp_dir, uuid4().hex)
     os.makedirs(temp_dir, exist_ok=True)
     zip_path = os.path.join(temp_dir, file.filename)
 
@@ -250,56 +306,22 @@ async def batch_processor(request: Request, file: UploadFile = File(...)):
         shutil.rmtree(temp_dir)
         raise HTTPException(status_code=400, detail="Invalid ZIP file.")
 
-    email = request.session.get("email")
-    is_premium = False
-    model_used = ""
-    message = ""
     captions = {}
 
     def process_image_with_model(path: str):
-        nonlocal is_premium, model_used, message
+        user = payments.find_one({"email": email})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-        if email:
-            user = payments.find_one({"email": email})
-            if not user:
-                raise HTTPException(status_code=404, detail="No user found")
+        status = user.get("status", False)
+        total_amount = user.get("total_amount", 0)
 
-            status = user.get("status", False)
-            total_amount = user.get("total_amount", 0)
-            api_request = user.get("api_request", 0)
-
-            if status and total_amount > 0:
-                caption = PremiumModelRunner(path).run()
-                payments.update_one({"email": email}, {"$inc": {"total_amount": -1}})
-                is_premium = True
-                model_used = "premium"
-                message = f"Using Premium model. Remaining premium quota: {total_amount - 1}"
-                return caption
-
-            elif api_request > 0:
-                if status and total_amount == 0:
-                    message = "Switched to Freemium: Premium quota exhausted. "
-                caption = callfreemiumModel(path)
-                payments.update_one({"email": email}, {"$inc": {"api_request": -1}})
-                model_used = "freemium"
-                message += f"Using Freemium model. Remaining freemium quota: {api_request - 1}"
-                return caption
-
-            else:
-                message = "No premium or freemium quota left."
-                return None
-
-        else:
-            ip = request.client.host
-            rec = _anon_quota(ip)
-            if rec["quota"] <= 0:
-                message = "Anonymous quota exhausted."
-                return None
-            caption = callfreemiumModel(path)
-            rec["quota"] -= 1
-            model_used = "freemium"
-            message = f"Using Freemium model. Anonymous quota remaining: {rec['quota']}"
+        if status and total_amount > 0:
+            caption = PremiumModelRunner(path).run()
+            payments.update_one({"email": email}, {"$inc": {"total_amount": -1}})
             return caption
+        else:
+            return None
 
     for root, _, files in os.walk(extract_dir):
         for fname in files:
@@ -307,23 +329,21 @@ async def batch_processor(request: Request, file: UploadFile = File(...)):
             if ext in [".jpg", ".jpeg", ".png", ".bmp", ".webp"]:
                 path = os.path.join(root, fname)
                 caption = process_image_with_model(path)
-                if not caption:
-                    captions[fname] = "Quota exhausted or model error"
+                if caption is None:
+                    captions[fname] = "Insufficient premium quota"
                     continue
 
                 if selected_language and selected_language.lower() != "en":
-                    if is_premium:
-                        try:
-                            caption = await translate_caption(caption, selected_language)
-                        except Exception as e:
-                            caption += f" (Translation failed: {str(e)})"
-                    else:
-                        caption += " (Translation available for premium users only)"
+                    try:
+                        caption = await translate_caption(caption, selected_language)
+                    except Exception as e:
+                        caption += f" (Translation failed: {str(e)})"
+
                 captions[fname] = caption
 
     out_json = os.path.join(temp_dir, "captions.json")
-    with open(out_json, "w") as f:
-        json.dump(captions, f, indent=2)
+    with open(out_json, "w", encoding="utf-8") as f:
+        json.dump(captions, f, indent=2, ensure_ascii=False)
 
     return FileResponse(out_json, media_type="application/json", filename="captions.json")
 
@@ -343,17 +363,69 @@ async def user_status(request: Request):
 async def create_payment(request: Request, amount: float = Query(...)):
     tx = str(uuid.uuid4())
     total = amount
-    msg = f"total_amount={total}, transaction_uuid={tx}, product_code={ESEWA_PRODUCT_CODE}"
+    msg = f"total_amount={total},transaction_uuid={tx},product_code={ESEWA_PRODUCT_CODE}"
     sig = base64.b64encode(hmac.new(ESEWA_SECRET_KEY.encode(), msg.encode(), hashlib.sha256).digest()).decode()
     ctx = {"request": request, "amount": amount, "total_amount": total, "transaction_uuid": tx, "product_code": ESEWA_PRODUCT_CODE, "success_url": "http://localhost:8000/payment_callback", "failure_url": "http://localhost:8000/payment_callback", "signature": sig}
     return templates.TemplateResponse("payment_form.html", ctx)
 
 @app.get("/payment_callback", response_class=HTMLResponse)
 async def payment_callback(request: Request, data: str):
-    pl = json.loads(base64.b64decode(data).decode())
-    with open("payment_data.txt", "a") as f:
-        f.write(json.dumps(pl) + "\n")
-    return templates.TemplateResponse("index.html", {"request": request, "data": pl})
+    try:
+        pl = json.loads(base64.b64decode(data).decode())
+        transaction_uuid = pl.get("transaction_uuid")
+        total_amount = float(pl.get("total_amount").replace(",", ""))
+        
+        resp = requests.get(ESEWA_STATUS_URL, params={
+            "product_code": ESEWA_PRODUCT_CODE,
+            "transaction_uuid": transaction_uuid,
+            "total_amount": total_amount
+        })
+
+        if resp.status_code != 200:
+            raise HTTPException(status_code=502, detail="eSewa verification failed")
+
+        resp_json = resp.json()
+        status = resp_json.get("status")
+
+        if status == "COMPLETE":
+            email = request.session.get("email")
+            if not email:
+                raise HTTPException(status_code=400, detail="Email not found in session")
+
+            update_result = payments.update_one(
+                {"email": email},
+                {
+                    "$set": {
+                        "status": True,
+                        "transaction_uuid": transaction_uuid
+                    },
+                    "$inc": {"total_amount": total_amount}
+                }
+            )
+
+            if update_result.matched_count == 0:
+                message = "No matching payment found for email"
+            else:
+                message = "Payment found for email"
+
+            message = "Payment successful!"
+        else:
+            message = "Payment failed or incomplete."
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+    user_name = request.session.get("name")
+    user_email = request.session.get("email")
+    user = None
+
+    if user_name and user_email:
+        user_email_record = payments.find_one({"email": user_email})
+        if user_email_record:
+            token = user_email_record.get("token")
+            user = {"name": user_name, "email": user_email, "token": token}
+
+    return templates.TemplateResponse("index.html", {"request": request, "message": message, "user": user})
 
 @app.get("/check_status")
 async def check_status(transaction_uuid: str = Query(...), total_amount: float = Query(...)):

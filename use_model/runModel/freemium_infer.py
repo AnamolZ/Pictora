@@ -12,7 +12,7 @@ from freemiumApp import App
 # assert os.path.exists(image_path), f"Image not found at: {image_path}"
 
 def callfreemiumModel(image_path):
-    return App.run(image_path)
+    return App.run_freemium_model(image_path)
 
 # if __name__ == "__main__":
 #     callfreemiumModel(image_path)
