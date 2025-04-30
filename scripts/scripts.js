@@ -19,6 +19,52 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+function isUserLoggedIn() {
+    return !!localStorage.getItem('userEmail');
+}
+
+function requireLogin(callback) {
+    if (!isUserLoggedIn()) {
+        showNotification("Login to use this function");
+        return;
+    }
+    callback();
+}
+
+function showUploadSpinner() {
+    const uploadBox = document.getElementById('uploadBox');
+    const spinner = uploadBox.querySelector('.local-loading-spinner');
+    if (spinner) {
+        uploadBox.classList.add('loading');
+    }
+}
+
+function hideUploadSpinner() {
+    const uploadBox = document.getElementById('uploadBox');
+    const spinner = uploadBox.querySelector('.local-loading-spinner');
+    if (spinner) {
+        uploadBox.classList.remove('loading'); 
+    }
+}
+
+function showUploadSpinnerZip() {
+    const zipUploadBox = document.getElementById('zipUploadBox');
+    const spinner = zipUploadBox.querySelector('.local-loading-spinner');
+    if (spinner) {
+        zipUploadBox.classList.add('loading'); 
+    }
+}
+
+function hideUploadSpinnerZip() {
+    const zipUploadBox = document.getElementById('zipUploadBox');
+    const spinner = zipUploadBox.querySelector('.local-loading-spinner');
+    if (spinner) {
+        zipUploadBox.classList.remove('loading'); 
+    }
+}
+
+
+
 window.onload = function () {
     const authSection = document.getElementById('auth-section');
     const userEmail = authSection.dataset.userEmail;
@@ -34,7 +80,7 @@ window.onload = function () {
 
     if (cachedEmail && cachedName) {
         authSection.innerHTML = `
-            <a href="#" class="nav-link" style="color: black;">Models</a>
+            <a href="https://github.com/AnamolZ/Pictora" class="nav-link" style="color: black;">OpenSource</a>
             <a href="#" id="payment-button" class="nav-link" style="color: black;">Payment</a>
             <a href="#" id="logout-link" class="nav-link" style="color: black;">
                 ${cachedName}
@@ -151,53 +197,59 @@ document.addEventListener('DOMContentLoaded', () => {
         editBtn.disabled = true;
     });
 
-    processBtn.addEventListener('click', async () => {
-        const file = fileInput.files[0];
-        const selectedLanguage = document.getElementById('language').value;
-        const userToken = localStorage.getItem('userToken');
-
-        if (!file) {
-            captionEditor.style.display = 'block';
-            captionContainer.style.display = 'none';
-            captionTextDiv.textContent = 'Please select an image before processing.';
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('language', selectedLanguage);
-        formData.append('token', userToken);
-
-        try {
-            const response = await fetch('/process', {
-                method: 'POST',
-                credentials: 'include',
-                body: formData
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
+    processBtn.addEventListener('click', () => {
+        requireLogin(async () => {
+            const file = fileInput.files[0];
+            const selectedLanguage = document.getElementById('language').value;
+            const userToken = localStorage.getItem('userToken');
+    
+            if (!file) {
                 captionEditor.style.display = 'block';
                 captionContainer.style.display = 'none';
-                captionTextDiv.textContent = result.caption || 'No caption returned';
-                uploadBox.classList.add('edit-mode');
-
-                if (result.message) {
-                    showNotification(result.message);
-                }
-            } else {
-                captionEditor.style.display = 'block';
-                captionContainer.style.display = 'none';
-                captionTextDiv.textContent = result.caption || '';
-                showNotification(result.message || 'An unknown error occurred.');
+                captionTextDiv.textContent = 'Please select an image before processing.';
+                return;
             }
-        } catch (err) {
-            captionEditor.style.display = 'block';
-            captionContainer.style.display = 'none';
-            captionTextDiv.textContent = 'An error occurred while sending the image.';
-        }
-    });
+    
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('language', selectedLanguage);
+            formData.append('token', userToken);
+    
+            showUploadSpinner();
+    
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData,
+                    headers: {
+                        'Authorization': `Bearer ${userToken}`
+                    }
+                });
+    
+                const result = await response.json();
+    
+                if (response.ok) {
+                    captionEditor.style.display = 'block';
+                    captionContainer.style.display = 'none';
+                    captionTextDiv.textContent = result.caption || 'No caption returned';
+                    uploadBox.classList.add('edit-mode');
+                    if (result.message) showNotification(result.message);
+                } else {
+                    captionEditor.style.display = 'block';
+                    captionContainer.style.display = 'none';
+                    captionTextDiv.textContent = result.caption || '';
+                    showNotification(result.message || 'An unknown error occurred.');
+                }
+            } catch (err) {
+                captionEditor.style.display = 'block';
+                captionContainer.style.display = 'none';
+                captionTextDiv.textContent = 'An error occurred while sending the image.';
+            } finally {
+                hideUploadSpinner();
+            }
+        });
+    });        
 
     editBtn.addEventListener('click', () => {
         if (!uploadBox.classList.contains('edit-mode')) return;
@@ -308,7 +360,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let downloadUrl = null;
 
     zipUploadBox.addEventListener('click', () => {
-        zipInput.click();
+        requireLogin(async () => {
+            zipInput.click();
+        });
     });
 
     zipInput.addEventListener('change', (e) => {
@@ -332,30 +386,36 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Please select a ZIP file.');
             return;
         }
-
+    
         const selectedLanguage = languageSelect.value;
-
+        const userToken = localStorage.getItem('userToken');
+    
         zipProcessBtn.disabled = true;
         zipProcessBtn.textContent = 'Processing...';
         downloadBtn.disabled = true;
-
+    
         const formData = new FormData();
         formData.append('file', selectedZipFile);
         formData.append('language', selectedLanguage);
-
+    
+        showUploadSpinnerZip();
+    
         try {
             const response = await fetch('/batchprocessor', {
                 method: 'POST',
                 body: formData,
                 credentials: 'include',
+                headers: {
+                    'Authorization': `Bearer ${userToken}`
+                }
             });
-
+    
             if (response.ok) {
                 const blob = await response.blob();
                 downloadUrl = window.URL.createObjectURL(blob);
-
+    
                 downloadBtn.disabled = false;
-
+    
                 downloadBtn.addEventListener('click', function handleClick() {
                     const link = document.createElement('a');
                     link.href = downloadUrl;
@@ -363,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     link.click();
                     downloadBtn.removeEventListener('click', handleClick);
                 });
-
+    
                 showNotification('ZIP processed successfully! Click to download the captions.');
             } else {
                 const error = await response.json();
@@ -372,6 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             showNotification('Failed to process the ZIP file.');
         } finally {
+            hideUploadSpinnerZip();
             zipProcessBtn.disabled = false;
             zipProcessBtn.textContent = 'Process Zip File';
         }

@@ -481,8 +481,9 @@ body {
   height: 45%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  align-items: stretch; /* was center — changed */
+  justify-content: flex-start; /* was center — changed */
+  gap: var(--space-4);
 }
 
 .upload-box:hover {
@@ -648,18 +649,64 @@ body {
   display: none;
 }
 
+.local-loading-spinner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.8);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
 
-/* .caption-text {
-  font-size: 14px;
-  color: var(--color-gray-800);
-  line-height: 1.5;
-  padding: var(--space-3);
-  border: 1px solid var(--color-gray-200);
-  border-radius: 6px;
-  min-height: 80px;
-  max-height: 150px;
-  overflow-y: auto;
-} */
+.local-loading-spinner .spinner {
+  width: 40px;
+  height: 40px;
+  border: 5px solid #ccc;
+  border-top: 5px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.hidden {
+  display: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+#uploadBox {
+  position: relative;
+}
+
+#zipUploadBox {
+  position: relative;
+}
+
+#zipUploadBox.loading, #uploadBox.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+#uploadBox .local-loading-spinner, #zipUploadBox .local-loading-spinner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.8);
+  z-index: 10;
+  display: none; /* Hide by default */
+}
+
+#uploadBox.loading .local-loading-spinner, #zipUploadBox.loading .local-loading-spinner {
+  display: flex; /* Show when loading */
+}
 
 .caption-text {
   font-size: 14px;
@@ -668,7 +715,7 @@ body {
   padding: var(--space-3);
   border: 1px solid var(--color-gray-200);
   border-radius: 6px;
-  width: 370px;
+  width: auto;
   height: 100px;
   overflow-y: auto;
   resize: none;

@@ -14,5 +14,8 @@ from freemiumApp import App
 def callfreemiumModel(image_path):
     return App.run_freemium_model(image_path)
 
+def loadfreemiumModel():
+    return App.load_model()
+
 # if __name__ == "__main__":
 #     callfreemiumModel(image_path)

@@ -40,9 +40,8 @@ class App:
                 _model_cache.simple_gen = Captioner.simple_gen.__get__(
                     _model_cache, _model_cache.__class__
                 )
-            print("Custom Model loaded and cached in RAM.")
         else:
-            print("Custom Model already loaded in RAM. Reusing it.")
+            pass
         return _model_cache
 
     @staticmethod
@@ -72,7 +71,6 @@ class App:
                 score = App.compute_blip_score(image, caption)
                 if score >= score_threshold:
                     high_score_captions.append((caption, score))
-                    print(f"Accepted ({len(high_score_captions)}/{required_count}): {score:.4f} - {caption}")
             except Exception as e:
                 print(f"Error: {e}")
 

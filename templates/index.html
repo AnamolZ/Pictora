@@ -15,7 +15,7 @@
       <header class="header">
         <a href="/" class="logo">pictora.ai</a>
         <nav class="nav" id="auth-section">
-          <a href="#" class="nav-link">Models</a>
+          <a href="https://github.com/AnamolZ/Pictora" class="nav-link">OpenSource</a>
           <a href="#" id="payment-button" class="nav-link">Payment</a>
           {% if user %}
             <a href="/logout" class="nav-link">{{ user.name }}</a>
@@ -68,6 +68,11 @@
                   </div>
                   <div class="caption-text" contenteditable="false">A beautiful landscape showing the dramatic formations of Antelope Canyon with light beams penetrating through the narrow openings.</div>
                 </div>
+                <!-- Loading spinner inside uploadBox -->
+                <div class="local-loading-spinner hidden" id="upload-spinner">
+                  <div class="spinner"></div>
+                </div>
+                <!-- Loading spinner inside uploadBox -->
               </div>
         
               <div class="language-selection">
@@ -107,6 +112,11 @@
                 <input type="file" id="zipInput" accept=".zip" style="display: none;" />
                 <p class="upload-text">Click to upload a ZIP file</p>
                 <p class="upload-limit">Maximum size: 5MB</p>
+                  <!-- Add spinner here -->
+                <div class="local-loading-spinner hidden" id="zip-spinner">
+                  <div class="spinner"></div>
+                </div>
+                <!-- Add spinner here -->
               </div>            
 
               <div class="language-selection">
@@ -210,21 +220,21 @@
 
       <section class="stability-section">
         <div class="stability-content">
-          <h2 class="stability-title">Build with a Stability AI.</h2>
+          <h2 class="stability-title">Pictora: Self-Supervised Captioner</h2>
           <p class="stability-description">
-            Stability AI licenses offer flexibility for your generative AI needs by combining a range of state-of-the-art open models with self-hosting benefits.
+            Pictora delivers cutting-edge self-supervised image captioning, empowering users to generate accurate and context-aware descriptions without relying on labeled data.
           </p>
           <div class="platform-options">
-            <div class="platform-option">
-              Cloud Platform
+            <div class="platform-option clickable" style="cursor: pointer;" onclick="window.open('https://medium.com/@zhonghong9998/exploring-self-supervised-learning-training-without-labeled-data-6e1a47dc5876', '_blank')">
+              Self-Supervised Learning
               <span class="arrow-icon">→</span>
             </div>
-            <div class="platform-option">
-              Platform API
+            <div class="platform-option clickable" style="cursor: pointer;" onclick="window.open('https://openai.com/index/clip/', '_blank')">
+              CLIP (Contrastive Language-Image Pretraining)
               <span class="arrow-icon">→</span>
             </div>
-            <div class="platform-option">
-              Self-Hosted License
+            <div class="platform-option clickable" style="cursor: pointer;" onclick="window.open('https://arxiv.org/abs/2504.08531', '_blank')">
+              Self-Supervised Image Captioning with Pseudo-Labels
               <span class="arrow-icon">→</span>
             </div>
           </div>
@@ -234,7 +244,7 @@
       <div class="footer-bottom">
         <p>&copy; 2024 Pictora.ai. All rights reserved.</p>
       </div>
-    </div>
+    </div>   
 
     <div id="payment-page" class="payment-page">
       <div class="payment-content">
