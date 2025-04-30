@@ -6,6 +6,11 @@ from PIL import Image
 from clip_score import ClipScoreCalculator
 import sys
 
+from dotenv import load_dotenv
+load_dotenv()
+
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+
 sys.path.append(os.path.abspath('../runModel'))
 
 from freemium_infer import callfreemiumModel
@@ -28,8 +33,8 @@ class Trainer:
             Trainer.blip_processor = BlipProcessor.from_pretrained(self.model_dir)
             Trainer.blip_model = BlipForConditionalGeneration.from_pretrained(self.model_dir)
         else:
-            Trainer.blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-            Trainer.blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+            Trainer.blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base", use_auth_token=HUGGINGFACE_TOKEN)
+            Trainer.blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base", use_auth_token=HUGGINGFACE_TOKEN)
             os.makedirs(self.model_dir, exist_ok=True)
             Trainer.blip_processor.save_pretrained(self.model_dir)
             Trainer.blip_model.save_pretrained(self.model_dir)

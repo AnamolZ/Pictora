@@ -9,12 +9,17 @@ from PIL import Image
 import torch
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
+from dotenv import load_dotenv
+load_dotenv()
+
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 sys.stderr = open(os.devnull, 'w')
 tf.get_logger().setLevel(logging.ERROR)
 
-processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").eval()
+processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base", use_auth_token=HUGGINGFACE_TOKEN)
+blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base", use_auth_token=HUGGINGFACE_TOKEN).eval()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 blip_model.to(device)
 

@@ -3,10 +3,16 @@
 from transformers import CLIPProcessor, CLIPModel
 import torch
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+
 class ClipScoreCalculator:
     def __init__(self):
-        self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        self.clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32", use_auth_token=HUGGINGFACE_TOKEN)
+        self.clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32", use_auth_token=HUGGINGFACE_TOKEN)
 
     def compute_clip_score(self, image, text):
         device = "cuda" if torch.cuda.is_available() else "cpu"

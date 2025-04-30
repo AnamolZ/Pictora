@@ -75,6 +75,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = e.target.files[0];
         if (!file) return;
 
+        if (!file.type.startsWith('image/')) {
+            showNotification("File must be an image type!");
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = function () {
             previewImage.src = reader.result;
@@ -236,6 +241,11 @@ function toggleApiKey() {
     const token = localStorage.getItem('userToken');
     const apiKeyElement = document.getElementById('api-key');
     const button = document.getElementById('api-key-button');
+    isLogin = localStorage.getItem('userEmail');
+
+    if (!isLogin) {
+        showNotification("Login To Get Access To API Key")
+    }
 
     if (apiKeyElement.textContent === '********************************************') {
         if (token) {
