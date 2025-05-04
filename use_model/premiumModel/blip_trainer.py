@@ -3,7 +3,7 @@
 import os
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
-from clip_score import ClipScoreCalculator
+from .clip_score import ClipScoreCalculator
 import sys
 
 from dotenv import load_dotenv
@@ -11,9 +11,7 @@ load_dotenv()
 
 HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
 
-sys.path.append(os.path.abspath('../runModel'))
-
-from freemium_infer import callfreemiumModel
+from ..runModel.freemium_infer import callfreemiumModel
 
 class Trainer:
     blip_model = None
@@ -39,13 +37,23 @@ class Trainer:
             Trainer.blip_processor.save_pretrained(self.model_dir)
             Trainer.blip_model.save_pretrained(self.model_dir)
 
+    # def train(self):
+    #     img = Image.open(self.img_path)
+    #     blip_inputs = Trainer.blip_processor(images=img, return_tensors="pt")
+    #     blip_output = Trainer.blip_model.generate(**blip_inputs)
+    #     blip_caption = Trainer.blip_processor.decode(blip_output[0], skip_special_tokens=True)
+
+    #     custom_caption = callfreemiumModel(self.img_path)
+    #     custom_caption = str(custom_caption)
+    #     custom_score = self.clip_score_calculator.compute_clip_score(img, custom_caption)
+    #     return custom_caption if custom_score >= 22 else blip_caption
+
     def train(self):
         img = Image.open(self.img_path)
-        blip_inputs = Trainer.blip_processor(images=img, return_tensors="pt")
-        blip_output = Trainer.blip_model.generate(**blip_inputs)
-        blip_caption = Trainer.blip_processor.decode(blip_output[0], skip_special_tokens=True)
 
-        custom_caption = callfreemiumModel(self.img_path)
-        custom_caption = str(custom_caption)
-        custom_score = self.clip_score_calculator.compute_clip_score(img, custom_caption)
-        return custom_caption if custom_score >= 22 else blip_caption
+        while True:
+            custom_caption = str(callfreemiumModel(self.img_path))
+            custom_score = self.clip_score_calculator.compute_clip_score(img, custom_caption)
+            if custom_score >= 22:
+                print("CLIP Scored Caption: ", custom_caption, custom_score)
+                return custom_caption

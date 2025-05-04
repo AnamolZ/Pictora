@@ -36,7 +36,6 @@ from tempfile import NamedTemporaryFile
 
 from use_model.runModel.freemium_infer import callfreemiumModel
 from use_model.runModel.premium_infer import PremiumModelRunner
-
 from login.config import GOOGLE_CLIENT_SECRET, GOOGLE_CLIENT_ID
 from payment.settings import ESEWA_SECRET_KEY, ESEWA_PRODUCT_CODE, ESEWA_STATUS_URL
 from database.database_config import payments, images_collection
@@ -57,20 +56,18 @@ cipher = Fernet(raw_key.encode())
 app = FastAPI()
 security = HTTPBearer()
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-
 app.mount("/styles", StaticFiles(directory=os.path.join(BASE_DIR, "styles")), name="styles")
 app.mount("/scripts", StaticFiles(directory=os.path.join(BASE_DIR, "scripts")), name="scripts")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.add_middleware(SessionMiddleware, secret_key=GOOGLE_CLIENT_SECRET, same_site="lax", https_only=True)
 
-print("Main.py Line 65")
 oauth = OAuth()
 oauth.register(
     name="google",
     server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
     client_id=GOOGLE_CLIENT_ID,
     client_secret=GOOGLE_CLIENT_SECRET,
+    # client_kwargs={"scope": "openid email profile", "response_type": "code", "redirect_uri": "http://localhost:8000/auth"},
     client_kwargs={"scope": "openid email profile", "response_type": "code"}
 )
 

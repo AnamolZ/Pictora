@@ -1,8 +1,30 @@
-python-multipart
-fastapi
-uvicorn
-pillow
+# Core libraries
+pillow==11.0.0
+tqdm==4.67.1
+scikit-learn==1.6.1
+pymongo==4.12.0
+python-dotenv==1.1.0
+motor==3.7.0
+einops==0.8.1
+numpy==1.26.4
+requests==2.32.3
+httpx==0.28.1
+googletrans==4.0.2
+starlette==0.46.1
+authlib==1.5.2
+apscheduler==3.11.0
+cryptography==44.0.2
+uvicorn[standard]
+fastapi[all]
 
-# python -B -m uvicorn main:app --reload
-# Get-Process python
-# Stop-Process -Id 16652
+# PyTorch GPU version
+torch
+torchvision
+torchaudio
+
+# Git-based packages
+git+https://github.com/openai/CLIP.git
+git+https://github.com/huggingface/transformers.git
+
+# TensorFlow GPU version
+tensorflow[and-cuda]

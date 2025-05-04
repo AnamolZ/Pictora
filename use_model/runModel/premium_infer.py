@@ -1,12 +1,9 @@
 import sys
 import os
 
-premium_model_dir = os.path.abspath("../premiumModel")
-sys.path.append(premium_model_dir)
+from ..premiumModel.blip_trainer import Trainer
 
-import os
-from blip_trainer import Trainer
-
+print("premium_infer.py Line 6")
 class PremiumModelRunner:
     def __init__(self, image_path):
         self.image_path = image_path

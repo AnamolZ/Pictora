@@ -2,12 +2,14 @@ import os
 import sys
 import logging
 import tensorflow as tf
-from Processing import Processing
-from Captioner import Captioner
+from .Processing import Processing
+from .Captioner import Captioner
 
 from PIL import Image
 import torch
+import time
 from transformers import BlipProcessor, BlipForConditionalGeneration
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -25,6 +27,9 @@ blip_model.to(device)
 
 _model_cache = None
 
+freemium_modelPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models", "caption")
+freemium_modelPath = os.path.normpath(freemium_modelPath)
+
 class App:
     @staticmethod
     def load_model():
@@ -32,7 +37,7 @@ class App:
         if _model_cache is None:
             print("Model not in RAM. Loading now...")
             _model_cache = tf.keras.models.load_model(
-                os.path.join("..", "models", "caption"),
+                freemium_modelPath,
                 custom_objects={"standardize": Processing.standardize, "Captioner": Captioner},
                 compile=False
             )
@@ -40,14 +45,11 @@ class App:
                 _model_cache.simple_gen = Captioner.simple_gen.__get__(
                     _model_cache, _model_cache.__class__
                 )
-        else:
-            pass
         return _model_cache
 
     @staticmethod
-    def run(image_path):
-        model = App.load_model()
-        return Processing.generate_caption(model, image_path)
+    def run():
+        return App.load_model()
 
     @staticmethod
     def compute_blip_score(image, caption):
@@ -59,22 +61,42 @@ class App:
             return logits.softmax(dim=-1).max().item()
 
     @staticmethod
-    def run_freemium_model(image_path, score_threshold=0.9, required_count=3):
+    def run_freemium_model(image_path, score_threshold=0.9, required_count=5, total_captions=50):
+        start_time = time.time()
         image = Image.open(image_path).convert("RGB")
+        model = App.run()
         high_score_captions = []
 
-        while len(high_score_captions) < required_count:
+        def generate_and_score():
             try:
-                caption = App.run(image_path)
+                caption = Processing.generate_caption(model, image_path)
                 if not caption or not isinstance(caption, str):
-                    continue
+                    return None
                 score = App.compute_blip_score(image, caption)
                 if score >= score_threshold:
-                    high_score_captions.append((caption, score))
-            except Exception as e:
-                print(f"Error: {e}")
+                    return (caption, score)
+            except:
+                return None
+            return None
 
-        best_caption, _ = min(high_score_captions, key=lambda x: len(x[0]))
+        with ThreadPoolExecutor(max_workers=16) as executor:
+            futures = [executor.submit(generate_and_score) for _ in range(total_captions)]
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    high_score_captions.append(result)
+                    if len(high_score_captions) >= required_count:
+                        break
+
+        if not high_score_captions:
+            return None
+
+        # Sort captions by score DESC, then length ASC
+        sorted_captions = sorted(high_score_captions, key=lambda x: (-x[1], len(x[0])))
+        best_caption = sorted_captions[0][0]
+
+        duration = time.time() - start_time
+        print(f"Best caption generated in {duration:.2f} seconds with score {sorted_captions[0][1]:.4f} and length {len(best_caption)}.")
         return best_caption
 
 if __name__ == "__main__":

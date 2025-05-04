@@ -3,9 +3,7 @@
 import os
 import sys
 
-sys.path.append(os.path.abspath('../freemiumModel'))
-
-from freemiumApp import App
+from ..freemiumModel.freemiumApp import App
 
 # image_path = "../testimages/image4.jpg"
 
