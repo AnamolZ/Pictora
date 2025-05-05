@@ -1,19 +1,20 @@
-FROM continuumio/miniconda3:4.12.0
+FROM python:3.9-slim
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    curl \
+    libssl-dev \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
-
-RUN conda create -n pictora python=3.9 -y && \
-    conda run -n pictora pip install --no-cache-dir -r requirements.txt && \
-    conda clean --all -f -y
-
-ENV CUDA_VISIBLE_DEVICES=""
-ENV TF_CPP_MIN_LOG_LEVEL=3
-ENV PYTHONPATH=/app
+RUN pip install --no-cache-dir --retries 10 --timeout 60 -r requirements.txt
 
 COPY . .
 
 EXPOSE 8000
 
-CMD ["conda", "run", "--no-capture-output", "-n", "pictora", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "use_model.runModel.main:app", "--host", "0.0.0.0", "--port", "8000"]

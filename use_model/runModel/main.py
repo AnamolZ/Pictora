@@ -34,8 +34,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from tempfile import NamedTemporaryFile
 
-from use_model.runModel.freemium_infer import callfreemiumModel
-from use_model.runModel.premium_infer import PremiumModelRunner
+from .freemium_infer import callfreemiumModel
+from .premium_infer import PremiumModelRunner
 
 from login.config import GOOGLE_CLIENT_SECRET, GOOGLE_CLIENT_ID
 from payment.settings import ESEWA_SECRET_KEY, ESEWA_PRODUCT_CODE, ESEWA_STATUS_URL
@@ -64,7 +64,6 @@ app.mount("/scripts", StaticFiles(directory=os.path.join(BASE_DIR, "scripts")), 
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.add_middleware(SessionMiddleware, secret_key=GOOGLE_CLIENT_SECRET, same_site="lax", https_only=True)
 
-print("Main.py Line 65")
 oauth = OAuth()
 oauth.register(
     name="google",
@@ -184,6 +183,10 @@ async def serve_home(request: Request):
             user = {"name": user_name, "email": user_email, "token": token}
 
     return templates.TemplateResponse("index.html", {"request": request, "user": user})
+
+@app.get("/health")
+async def health():
+    return JSONResponse(status_code=200, content={"message": "Everything is good here 👀"})
 
 async def translate_caption(text: str, target_lang: str) -> str:
     if not text or not target_lang:

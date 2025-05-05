@@ -20,9 +20,40 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 sys.stderr = open(os.devnull, 'w')
 tf.get_logger().setLevel(logging.ERROR)
 
-processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base", use_auth_token=HUGGINGFACE_TOKEN)
-blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base", use_auth_token=HUGGINGFACE_TOKEN).eval()
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model_dir = os.path.abspath(os.path.join("..", "models", "blip"))
+device = torch.device("cpu")
+
+def ensure_blip_model():
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+
+    files_required = [
+        os.path.join(model_dir, "config.json"),
+        os.path.join(model_dir, "pytorch_model.bin"),
+        os.path.join(model_dir, "preprocessor_config.json")
+    ]
+    
+    missing_files = [f for f in files_required if not os.path.exists(f)]
+
+    if missing_files:
+        processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base", use_auth_token=HUGGINGFACE_TOKEN)
+        model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base", use_auth_token=HUGGINGFACE_TOKEN)
+
+        processor.save_pretrained(model_dir)
+        model.save_pretrained(model_dir)
+
+ensure_blip_model()
+
+try:
+    processor = BlipProcessor.from_pretrained(model_dir, local_files_only=True)
+except Exception as e:
+    print(f"Error loading processor: {e}")
+
+try:
+    blip_model = BlipForConditionalGeneration.from_pretrained(model_dir, local_files_only=True).eval()
+except Exception as e:
+    print(f"Error loading model: {e}")
+
 blip_model.to(device)
 
 _model_cache = None
@@ -61,7 +92,7 @@ class App:
             return logits.softmax(dim=-1).max().item()
 
     @staticmethod
-    def run_freemium_model(image_path, score_threshold=0.9, required_count=5, total_captions=50):
+    def run_freemium_model(image_path, score_threshold=0.9, required_count=5, total_captions=20):
         start_time = time.time()
         image = Image.open(image_path).convert("RGB")
         model = App.run()
