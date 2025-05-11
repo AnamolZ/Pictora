@@ -1,4 +1,4 @@
-# Demo settings for eSewa payment gateway
+# Demo settings for eSewa payment gateway, provided keys are just for testing purpose 
 
 ESEWA_SECRET_KEY = "8gBm/:&EnhH.1/q"
 ESEWA_PRODUCT_CODE = "EPAYTEST"

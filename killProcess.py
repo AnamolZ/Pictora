@@ -1,3 +1,7 @@
+# Script to terminate any running Python processes that may be stuck in an infinite loop or are no longer responding.
+# This can be useful during development when debugging long-running or stuck Python scripts.
+# The script iterates through all processes and kills any Python process, excluding the current script's process.
+
 import psutil
 import os
 

@@ -1,53 +1,76 @@
 import os
+import sys
+import time
 import json
 import uuid
 import hmac
 import hashlib
 import base64
-import sys
-import time
+import shutil
+import secrets
+import zipfile
+import asyncio
 import requests
 import httpx
-import asyncio
-import zipfile
-from fastapi.responses import FileResponse
 from uuid import uuid4
-import shutil
-
+from tempfile import NamedTemporaryFile
 from threading import Lock
-
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Query, Depends, status, Form
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
-
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import secrets
-
-from googletrans import Translator
+from urllib.parse import urljoin
 from typing import Optional
 
+# FastAPI core
+from fastapi import (
+    FastAPI, File, UploadFile, HTTPException, Request, Query,
+    Depends, status, Form
+)
+from fastapi.responses import (
+    JSONResponse, FileResponse, HTMLResponse, RedirectResponse
+)
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.concurrency import run_in_threadpool
+
+# Middleware & background tasks
 from starlette.middleware.sessions import SessionMiddleware
-from authlib.integrations.starlette_client import OAuth, OAuthError
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from tempfile import NamedTemporaryFile
 
+# External libraries
+from googletrans import Translator
+from authlib.integrations.starlette_client import OAuth, OAuthError
+from cryptography.fernet import Fernet
+from bson import Binary
+from dotenv import load_dotenv
+from PIL import Image
+from transformers import logging
+
+# TensorFlow
+import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+# Load environment variables
+load_dotenv()
+
+# Suppress transformers logging
+logging.set_verbosity_error()
+
+# Local module imports
 from .freemium_infer import callfreemiumModel
-from .premium_infer import PremiumModelRunner
+from .premium_infer import callPremiumModel
+from ..processor.Captioner import Captioner
+from ..processor.Processing import Processing
+from ..freemiumModel.freemiumApp import freemiumApp
+from ..premiumModel.PremiumApp import premiumApp
 
+# App-specific config and DB
 from login.config import GOOGLE_CLIENT_SECRET, GOOGLE_CLIENT_ID
 from payment.settings import ESEWA_SECRET_KEY, ESEWA_PRODUCT_CODE, ESEWA_STATUS_URL
 from database.database_config import payments, images_collection
 
-from fastapi.concurrency import run_in_threadpool
-
-from cryptography.fernet import Fernet
-from bson import Binary
-from dotenv import load_dotenv
-
-load_dotenv()
+# Gemini
+import google.generativeai as genai
 
 raw_key = os.getenv("FERNET_KEY")
 if not raw_key:
@@ -57,11 +80,14 @@ cipher = Fernet(raw_key.encode())
 app = FastAPI()
 security = HTTPBearer()
 
+freemium_model_path = os.path.normpath(os.path.join(os.path.dirname(__file__), ".." ,"models", "caption"))
+
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 app.mount("/styles", StaticFiles(directory=os.path.join(BASE_DIR, "styles")), name="styles")
 app.mount("/scripts", StaticFiles(directory=os.path.join(BASE_DIR, "scripts")), name="scripts")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+
 app.add_middleware(SessionMiddleware, secret_key=GOOGLE_CLIENT_SECRET, same_site="lax", https_only=True)
 
 oauth = OAuth()
@@ -73,10 +99,16 @@ oauth.register(
     client_kwargs={"scope": "openid email profile", "response_type": "code"}
 )
 
-scheduler = BackgroundScheduler()
-def reset_db_quota():
-    payments.update_many({"api_request": 0}, {"$set": {"api_request": 5}})
-scheduler.add_job(reset_db_quota, IntervalTrigger(minutes=5), id="reset_db_quota", replace_existing=True)
+async def reset_db_quota():
+    await payments.update_many({"api_request": 0}, {"$set": {"api_request": 5}})
+
+scheduler = AsyncIOScheduler()
+scheduler.add_job(
+    reset_db_quota,
+    IntervalTrigger(minutes=5),
+    id="reset_db_quota",
+    replace_existing=True
+)
 scheduler.start()
 
 anon_lock = Lock()
@@ -103,6 +135,17 @@ async def encrypt_save(image_bytes: bytes):
 @app.on_event("startup")
 def on_startup():
     print("App started")
+    model = tf.keras.models.load_model(
+        freemium_model_path,
+        custom_objects={"standardize": Processing.standardize, "Captioner": Captioner},
+        compile=False
+    )
+    if not hasattr(model, "simple_gen"):
+        model.simple_gen = Captioner.simple_gen.__get__(model, model.__class__)
+
+    freemiumApp.inject_model(model)
+    premiumApp.inject_model(model)
+    print("Model Loaded Into RAM.")
 
 @app.on_event("shutdown")
 def on_shutdown():
@@ -229,7 +272,7 @@ async def process_image(request: Request, file: UploadFile = File(...), model_us
                     tmp.write(img)
                     path = tmp.name
 
-                caption = await run_in_threadpool(PremiumModelRunner(path).run)
+                caption = await run_in_threadpool(lambda: callPremiumModel(path))
 
                 if selected_language and selected_language.lower() != "en":
                     caption = await translate_caption(caption, selected_language)
@@ -272,7 +315,7 @@ async def process_image(request: Request, file: UploadFile = File(...), model_us
                     tmp.write(img)
                     path = tmp.name
 
-                caption = await run_in_threadpool(PremiumModelRunner(path).run)
+                caption = await run_in_threadpool(lambda: callPremiumModel(path))
 
                 if selected_language and selected_language.lower() != "en":
                     caption = await translate_caption(caption, selected_language)
@@ -378,7 +421,7 @@ async def batch_processor(request: Request, file: UploadFile = File(...), _=Depe
         total_amount = user.get("total_amount", 0)
 
         if status and total_amount > 0:
-            caption = await run_in_threadpool(PremiumModelRunner(path).run)
+            caption = await run_in_threadpool(lambda: callPremiumModel(path))
             await payments.update_one({"email": email}, {"$inc": {"total_amount": -1}})
             return caption
         else:
@@ -518,3 +561,40 @@ async def check_status(transaction_uuid: str = Query(...), total_amount: float =
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail="eSewa error")
     return resp.json()
+
+def fix_grammar(api_key, caption):
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("models/gemini-1.5-flash")
+        response = model.generate_content(
+            f"Given the image caption: {caption}, correct any grammar, logical issue or phrasing issues and shorten it to be super concise and natural. Return only the improved caption."
+        )
+        return response.text.strip()
+    except Exception:
+        return caption
+
+@app.post("/faster_response")
+async def fast_generation(file: UploadFile = File(...)):
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not file:
+        raise HTTPException(status_code=400, detail="File not provided")
+    try:
+        image_bytes = await file.read()
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            image.save(tmp, format="JPEG")
+            tmp_path = tmp.name
+        start_time = time.time()
+        caption = freemiumApp.fast_generation(tmp_path)
+        os.remove(tmp_path)
+        if caption is None:
+            raise HTTPException(status_code=500, detail="Failed to generate caption")
+        
+        improved = fix_grammar(api_key, caption)
+        duration = time.time() - start_time
+        return JSONResponse({
+            "caption": improved,
+            "generation_time_seconds": round(duration, 2)
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating caption: {e}")

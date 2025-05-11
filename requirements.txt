@@ -24,3 +24,5 @@ apscheduler==3.11.0
 cryptography==44.0.2
 uvicorn[standard]
 fastapi[all]
+google-generativeai
+protobuf==3.19.6

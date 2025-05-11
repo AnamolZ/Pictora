@@ -2,7 +2,6 @@
 
 from transformers import CLIPProcessor, CLIPModel
 import torch
-
 import os
 from dotenv import load_dotenv
 load_dotenv()

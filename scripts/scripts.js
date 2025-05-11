@@ -63,8 +63,6 @@ function hideUploadSpinnerZip() {
     }
 }
 
-
-
 window.onload = function () {
     const authSection = document.getElementById('auth-section');
     const userEmail = authSection.dataset.userEmail;

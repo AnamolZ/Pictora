@@ -1,22 +1,23 @@
-# PremiumApp.py
+# premiumApp.py
 
-import os
-from blip_trainer import Trainer
+from PIL import Image
+from ..qualityCheck.clip_score import ClipScoreCalculator
+from ..freemiumModel.freemiumApp import freemiumApp
 
-class PremiumModelRunner:
-    def __init__(self, image_path):
-        self.image_path = image_path
-        self._ensure_model_in_ram()
+class premiumApp:
+    model = None
 
-    def _ensure_model_in_ram(self):
-        if 'blip_model' not in globals() or 'blip_processor' not in globals():
-            trainer = Trainer(self.image_path)
-            globals()['blip_model'] = trainer.blip_model
-            globals()['blip_processor'] = trainer.blip_processor
+    @staticmethod
+    def inject_model(external_model):
+        premiumApp.model = external_model
 
-    def run(self):
-        return Trainer(self.image_path).train()
+    def __init__(self, img_path):
+        self.img_path = img_path
+        self.clip_score_calculator = ClipScoreCalculator()
 
-if __name__ == "__main__":
-    image_path = os.path.abspath(os.path.join("../testImages", "image4.jpg"))
-    print(PremiumModelRunner(image_path).run())
+    def run_premium_model(self):
+        if premiumApp.model is None:
+            raise RuntimeError("Model has not been injected")
+
+        custom_caption = str(freemiumApp.run_freemium_model(self.img_path))
+        return custom_caption

@@ -1,6 +1,3 @@
-# Ignore Hugging Face cache or credentials
-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/
-
 # Ignore .env files (both root and in login/)
 .env
 login/.env

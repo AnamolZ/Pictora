@@ -1,135 +1,217 @@
-import os
-import sys
-import logging
-import tensorflow as tf
-from .Processing import Processing
-from .Captioner import Captioner
-
+import io
 from PIL import Image
-import torch
 import time
-from transformers import BlipProcessor, BlipForConditionalGeneration
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+import tensorflow as tf
+import sys
+import os
 from dotenv import load_dotenv
+import google.generativeai as genai
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from processor.Processing import Processing
+from processor.Captioner import Captioner
+from qualityCheck.blip_score import BlipScoreCalculator
+from qualityCheck.clip_score import ClipScoreCalculator
+
 load_dotenv()
 
+from transformers import BlipProcessor, BlipForConditionalGeneration
 HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-sys.stderr = open(os.devnull, 'w')
-tf.get_logger().setLevel(logging.ERROR)
-
-model_dir = os.path.abspath(os.path.join("..", "models", "blip"))
-device = torch.device("cpu")
-
-def ensure_blip_model():
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-
-    files_required = [
-        os.path.join(model_dir, "config.json"),
-        os.path.join(model_dir, "pytorch_model.bin"),
-        os.path.join(model_dir, "preprocessor_config.json")
-    ]
-    
-    missing_files = [f for f in files_required if not os.path.exists(f)]
-
-    if missing_files:
-        processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base", use_auth_token=HUGGINGFACE_TOKEN)
-        model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base", use_auth_token=HUGGINGFACE_TOKEN)
-
-        processor.save_pretrained(model_dir)
-        model.save_pretrained(model_dir)
-
-ensure_blip_model()
-
-try:
-    processor = BlipProcessor.from_pretrained(model_dir, local_files_only=True)
-except Exception as e:
-    print(f"Error loading processor: {e}")
-
-try:
-    blip_model = BlipForConditionalGeneration.from_pretrained(model_dir, local_files_only=True).eval()
-except Exception as e:
-    print(f"Error loading model: {e}")
-
-blip_model.to(device)
-
-_model_cache = None
-
-freemium_modelPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models", "caption")
-freemium_modelPath = os.path.normpath(freemium_modelPath)
-
-class App:
-    @staticmethod
-    def load_model():
-        global _model_cache
-        if _model_cache is None:
-            print("Model not in RAM. Loading now...")
-            _model_cache = tf.keras.models.load_model(
-                freemium_modelPath,
-                custom_objects={"standardize": Processing.standardize, "Captioner": Captioner},
-                compile=False
-            )
-            if not hasattr(_model_cache, "simple_gen"):
-                _model_cache.simple_gen = Captioner.simple_gen.__get__(
-                    _model_cache, _model_cache.__class__
-                )
-        return _model_cache
+class freemiumApp:
+    model = None
 
     @staticmethod
-    def run():
-        return App.load_model()
+    def inject_model(external_model):
+        freemiumApp.model = external_model
 
     @staticmethod
-    def compute_blip_score(image, caption):
-        inputs = processor(image, caption, return_tensors="pt")
-        inputs = {k: v.to(device) for k, v in inputs.items()}
-        with torch.no_grad():
-            outputs = blip_model(**inputs)
-            logits = outputs.logits[0]
-            return logits.softmax(dim=-1).max().item()
+    def fast_generation(image_path):
+        if freemiumApp.model is None:
+            raise RuntimeError("Model has not been injected")
+
+        try:
+            start_time = time.time()
+            caption = Processing.generate_caption(freemiumApp.model, image_path)
+            duration = time.time() - start_time
+            print(f"Caption generated in {duration:.2f} seconds.")
+            return caption
+        except Exception as e:
+            print(f"Error generating caption: {e}")
+            return None
 
     @staticmethod
-    def run_freemium_model(image_path, score_threshold=0.9, required_count=5, total_captions=20):
-        start_time = time.time()
-        image = Image.open(image_path).convert("RGB")
-        model = App.run()
-        high_score_captions = []
+    def generate_single_caption(image_path, blip_threshold=0.85, clip_threshold=22, total_captions=10):
+        if freemiumApp.model is None:
+            raise RuntimeError("Model has not been injected")
 
-        def generate_and_score():
+        load_dotenv()
+        api_key = os.getenv("GEMINI_API_KEY")
+
+        def fix_grammar(api_key, caption):
             try:
-                caption = Processing.generate_caption(model, image_path)
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel("models/gemini-1.5-flash")
+                response = model.generate_content(
+                    f"Given the image caption: {caption}, correct any grammar, logical issue or phrasing issues and shorten it to be super concise and natural. Return only the improved caption."
+                )
+                return response.text.strip()
+            except Exception:
+                return caption
+
+        scorer_blip = BlipScoreCalculator()
+        scorer_clip = ClipScoreCalculator()
+        image = Image.open(image_path).convert("RGB")
+        all_captions = []
+        valid_captions = []
+
+        for _ in range(total_captions):
+            try:
+                caption = Processing.generate_caption(freemiumApp.model, image_path)
+                if not caption:
+                    continue
+                blip_score = scorer_blip.compute_blip_score(image, caption)
+                clip_score = scorer_clip.compute_clip_score(image, caption)
+                all_captions.append((caption, blip_score, clip_score))
+                if blip_score >= blip_threshold and clip_score >= clip_threshold:
+                    valid_captions.append((caption, blip_score, clip_score))
+            except Exception:
+                continue
+
+        def select_best(captions_list):
+            if not captions_list:
+                return None
+            above_clip = [c for c in captions_list if c[2] >= clip_threshold]
+            candidates = above_clip if above_clip else captions_list
+            max_clip = max(candidates, key=lambda x: x[2])[2]
+            best = [x for x in candidates if x[2] == max_clip]
+            return min(best, key=lambda x: len(x[0]))[0]
+
+        best_caption = select_best(valid_captions if valid_captions else all_captions)
+
+        if best_caption:
+            return fix_grammar(api_key, best_caption)
+        else:
+            return "No suitable caption generated."
+
+    @staticmethod
+    def generate_caption_with_blip(image_path, huggingface_token=None):
+        image = Image.open(image_path).convert("RGB")
+        
+        processor = BlipProcessor.from_pretrained(
+            "Salesforce/blip-image-captioning-base", 
+            use_auth_token=huggingface_token
+        )
+        model = BlipForConditionalGeneration.from_pretrained(
+            "Salesforce/blip-image-captioning-base", 
+            use_auth_token=huggingface_token
+        )
+        
+        inputs = processor(images=image, return_tensors="pt")
+        output_ids = model.generate(**inputs)
+        
+        caption = processor.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+        return caption
+
+    @staticmethod
+    def run_freemium_model(image_path, blip_score_threshold=0.95, total_captions=50, top_n=20, timeout_seconds=120):
+        if freemiumApp.model is None:
+            raise RuntimeError("Model has not been injected")
+
+        start_time = time.time()
+        load_dotenv()
+        api_key = os.getenv("GEMINI_API_KEY")
+        def fix_grammer(api_key, caption):
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("models/gemini-1.5-flash")
+            response = model.generate_content(f"Given the image caption: {caption}, correct any grammar, logical issue or phrasing issues and shorten it to be super concise and natural. Return only the improved caption.")
+            return response.text
+
+        image = Image.open(image_path).convert("RGB")
+
+        scorer_blip = BlipScoreCalculator()
+        scorer_clip = ClipScoreCalculator()
+
+        def generate_caption_with_custom():
+            try:
+                caption = Processing.generate_caption(freemiumApp.model, image_path)
                 if not caption or not isinstance(caption, str):
                     return None
-                score = App.compute_blip_score(image, caption)
-                if score >= score_threshold:
-                    return (caption, score)
+                blip_score = scorer_blip.compute_blip_score(image, caption)
+                print("BLIP Caption: ", caption, "BLIP Score: ", blip_score)
+                if blip_score >= blip_score_threshold:
+                    return (caption, blip_score)
             except:
                 return None
-            return None
 
-        with ThreadPoolExecutor(max_workers=16) as executor:
-            futures = [executor.submit(generate_and_score) for _ in range(total_captions)]
+        blip_results = []
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(generate_caption_with_custom) for _ in range(total_captions)]
             for future in as_completed(futures):
+                if time.time() - start_time > timeout_seconds:
+                    break
                 result = future.result()
                 if result:
-                    high_score_captions.append(result)
-                    if len(high_score_captions) >= required_count:
+                    blip_results.append(result)
+                    if len(blip_results) >= top_n:
                         break
 
-        if not high_score_captions:
-            return None
+        if not blip_results:
+            return "No objects detected to generate caption."
 
-        # Sort captions by score DESC, then length ASC
-        sorted_captions = sorted(high_score_captions, key=lambda x: (-x[1], len(x[0])))
-        best_caption = sorted_captions[0][0]
+        top_blip_captions = [x[0] for x in sorted(blip_results, key=lambda x: x[1], reverse=True)[:top_n]]
+
+        clip_scored = []
+        for caption in top_blip_captions:
+            try:
+                score = scorer_clip.compute_clip_score(image, caption)
+                clip_scored.append((caption, score))
+            except:
+                continue
+
+        if not clip_scored:
+            return "No objects detected to generate caption."
+
+        max_score = max(clip_scored, key=lambda x: x[1])[1]
+        best_candidates = [x[0] for x in clip_scored if x[1] == max_score]
+        shortest_best = min(best_candidates, key=lambda x: len(x))
+        shortest_best_scrore = max_score
+        blip_caption_g = freemiumApp.generate_caption_with_blip(image_path, HUGGINGFACE_TOKEN)
+        blip_caption_g_bscore = scorer_clip.compute_clip_score(image, str(blip_caption_g))
+        # blip_caption_g_cscore = scorer_blip.compute_blip_score(image, str(blip_caption_g))
+
+        shortest_best = blip_caption_g if blip_caption_g_bscore > shortest_best_scrore else shortest_best
 
         duration = time.time() - start_time
-        print(f"Best caption generated in {duration:.2f} seconds with score {sorted_captions[0][1]:.4f} and length {len(best_caption)}.")
-        return best_caption
+        try:
+            shortest_best_fix = fix_grammer(api_key, shortest_best)
+            print(f"Best caption generated in {duration:.2f} seconds.")
+            print("Unfixed: ", shortest_best, "Fixed: ", shortest_best_fix)
+            return shortest_best_fix
+        except:
+            return shortest_best
 
 if __name__ == "__main__":
-    path = os.path.abspath(os.path.join("..", "testImages", "image4.jpg"))
-    print(App.run_freemium_model(path))
+    freemium_model_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "models", "caption"))
+
+    model = tf.keras.models.load_model(
+        freemium_model_path,
+        custom_objects={"standardize": Processing.standardize, "Captioner": Captioner},
+        compile=False
+    )
+
+    if not hasattr(model, "simple_gen"):
+        model.simple_gen = Captioner.simple_gen.__get__(model, model.__class__)
+
+    freemiumApp.inject_model(model)
+
+    image_path = os.path.abspath(os.path.join("..", "testFiles", "Images", "image1.jpg"))
+    caption = freemiumApp.run_freemium_model(
+        image_path,
+        score_threshold=0.90,
+        total_captions=20
+    )
+
+    print("Final Caption:", caption)
