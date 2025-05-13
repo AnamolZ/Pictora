@@ -48,6 +48,7 @@ The magic lies in blending pre-trained models like **YOLO** (for object detectio
 - **Freemium Mode**: Generates 50 captions, picks the best via BLIP/CLIP, then polishes with Gemini.  
 - **Premium Mode**: Direct model inference with credit-based quotas.  
 
+#### [*The pseudo caption that was created was uploaded to Kaggle.*](https://www.kaggle.com/datasets/anamoldhakal/pictora-dataset).
 ---
 
 ### **2. Web App Workflow**  
