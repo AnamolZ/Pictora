@@ -1,3 +1,4 @@
+# Standard Library Imports
 import os
 import sys
 import time
@@ -12,13 +13,15 @@ import zipfile
 import asyncio
 import requests
 import httpx
+import tempfile
+import io
 from uuid import uuid4
-from tempfile import NamedTemporaryFile
 from threading import Lock
 from urllib.parse import urljoin
 from typing import Optional
+from tempfile import NamedTemporaryFile
 
-# FastAPI core
+# FastAPI Specific Imports
 from fastapi import (
     FastAPI, File, UploadFile, HTTPException, Request, Query,
     Depends, status, Form
@@ -31,13 +34,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.concurrency import run_in_threadpool
 
-# Middleware & background tasks
+# Middleware & Background Tasks
 from starlette.middleware.sessions import SessionMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-# External libraries
+# External Libraries
 from googletrans import Translator
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from cryptography.fernet import Fernet
@@ -45,9 +48,9 @@ from bson import Binary
 from dotenv import load_dotenv
 from PIL import Image
 from transformers import logging
-
-# TensorFlow
+import google.generativeai as genai
 import tensorflow as tf
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Load environment variables
@@ -68,9 +71,6 @@ from ..premiumModel.PremiumApp import premiumApp
 from login.config import GOOGLE_CLIENT_SECRET, GOOGLE_CLIENT_ID
 from payment.settings import ESEWA_SECRET_KEY, ESEWA_PRODUCT_CODE, ESEWA_STATUS_URL
 from database.database_config import payments, images_collection
-
-# Gemini
-import google.generativeai as genai
 
 raw_key = os.getenv("FERNET_KEY")
 if not raw_key:
@@ -462,8 +462,6 @@ async def user_status(request: Request):
     ip = request.client.host
     rec = _anon_quota(ip)
     return {"status": False, "quota": rec["quota"]}
-
-from urllib.parse import urljoin
 
 @app.get("/create_payment", response_class=HTMLResponse)
 async def create_payment(request: Request, amount: float = Query(...)):
