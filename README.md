@@ -27,7 +27,7 @@ The magic lies in blending pre-trained models like **YOLO** (for object detectio
   - **API Integration**: Plug-and-play REST API for developers!  
 
 - **Batch Processing**: Upload ZIP files, get JSON captions—ideal for scaling.  
-- **Secure Payments**: Seamlessly pay via eSewa (India/Nepal), with role-based access control.  
+- **Secure Payments**: Seamlessly pay via eSewa (Nepal), with role-based access control.  
 
 ---
 
@@ -83,7 +83,7 @@ The magic lies in blending pre-trained models like **YOLO** (for object detectio
 
 ### **Scalability Wins**  
 - **Caching & Parallelism**: Thread pooling speeds up batch processing.  
-- **Rate Limiting**: Prevents abuse (Redis-based, implied in code).  
+- **Rate Limiting**: Prevents abuse (memory-based, implied in code).  
 
 ---
 
@@ -93,7 +93,7 @@ The magic lies in blending pre-trained models like **YOLO** (for object detectio
 | **Efficiency**        | Slashes manual captioning time by 90%! Processes images in 2–5 seconds.     |  
 | **Cost-Effectiveness**| Freemium tier for hobbyists; premium plans scale for enterprise needs.      |  
 | **Quality Assurance** | BLIP/CLIP scoring + Gemini = flawless, context-aware captions.              |  
-| **Scalability**       | Batch process thousands of images; cloud-native for enterprise growth.      |  
+| **Scalability**       | Batch process images;      |  
 
 ---
 
