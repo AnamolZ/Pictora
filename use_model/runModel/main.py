@@ -1,4 +1,3 @@
-# Standard Library Imports
 import os
 import sys
 import time
@@ -13,15 +12,15 @@ import zipfile
 import asyncio
 import requests
 import httpx
-import tempfile
-import io
 from uuid import uuid4
+from tempfile import NamedTemporaryFile
 from threading import Lock
 from urllib.parse import urljoin
 from typing import Optional
-from tempfile import NamedTemporaryFile
+import io
+import tempfile
 
-# FastAPI Specific Imports
+# FastAPI core
 from fastapi import (
     FastAPI, File, UploadFile, HTTPException, Request, Query,
     Depends, status, Form
@@ -34,13 +33,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.concurrency import run_in_threadpool
 
-# Middleware & Background Tasks
+# Middleware & background tasks
 from starlette.middleware.sessions import SessionMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-# External Libraries
+# External libraries
 from googletrans import Translator
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from cryptography.fernet import Fernet
@@ -48,9 +47,9 @@ from bson import Binary
 from dotenv import load_dotenv
 from PIL import Image
 from transformers import logging
-import google.generativeai as genai
-import tensorflow as tf
 
+# TensorFlow
+import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Load environment variables
@@ -71,6 +70,9 @@ from ..premiumModel.PremiumApp import premiumApp
 from login.config import GOOGLE_CLIENT_SECRET, GOOGLE_CLIENT_ID
 from payment.settings import ESEWA_SECRET_KEY, ESEWA_PRODUCT_CODE, ESEWA_STATUS_URL
 from database.database_config import payments, images_collection
+
+# Gemini
+import google.generativeai as genai
 
 raw_key = os.getenv("FERNET_KEY")
 if not raw_key:
@@ -463,6 +465,8 @@ async def user_status(request: Request):
     rec = _anon_quota(ip)
     return {"status": False, "quota": rec["quota"]}
 
+from urllib.parse import urljoin
+
 @app.get("/create_payment", response_class=HTMLResponse)
 async def create_payment(request: Request, amount: float = Query(...)):
     tx = str(uuid.uuid4())
@@ -574,25 +578,25 @@ def fix_grammar(api_key, caption):
 @app.post("/faster_response")
 async def fast_generation(file: UploadFile = File(...)):
     api_key = os.getenv("GEMINI_API_KEY")
-    if not file:
-        raise HTTPException(status_code=400, detail="File not provided")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not set")
     try:
-        image_bytes = await file.read()
-        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        data = await file.read()
+        img = Image.open(io.BytesIO(data)).convert("RGB")
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
-            image.save(tmp, format="JPEG")
-            tmp_path = tmp.name
-        start_time = time.time()
-        caption = freemiumApp.fast_generation(tmp_path)
-        os.remove(tmp_path)
-        if caption is None:
-            raise HTTPException(status_code=500, detail="Failed to generate caption")
-        
-        improved = fix_grammar(api_key, caption)
-        duration = time.time() - start_time
+            img.save(tmp, format="JPEG")
+            path = tmp.name
+        start = time.time()
+        caption = await run_in_threadpool(freemiumApp.fast_generation, path)
+        os.remove(path)
+        if not caption:
+            raise HTTPException(status_code=500, detail="caption generation failed")
+        improved = await run_in_threadpool(fix_grammar, api_key, caption)
         return JSONResponse({
             "caption": improved,
-            "generation_time_seconds": round(duration, 2)
+            "generation_time_seconds": round(time.time() - start, 2)
         })
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating caption: {e}")
