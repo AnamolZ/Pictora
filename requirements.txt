@@ -1,8 +1,10 @@
 torch 
 torchvision
 torchaudio --index-url https://download.pytorch.org/whl/cpu
-keras==2.11.0
-tensorflow==2.11.0
+# keras==2.11.0
+keras>=3.11.0
+# tensorflow==2.11.0
+tensorflow>=2.12.1
 
 git+https://github.com/openai/CLIP.git
 git+https://github.com/huggingface/transformers.git
@@ -15,14 +17,18 @@ python-dotenv==1.1.0
 motor==3.7.0
 einops==0.8.1
 numpy==1.26.4
-requests==2.32.3
+# requests==2.32.3
+requests>=2.32.4
 httpx==0.28.1
 googletrans==4.0.2
-starlette==0.46.1
-authlib==1.5.2
+# starlette==0.46.1
+starlette>=0.47.2
+# authlib==1.5.2
+authlib>=1.6.5
 apscheduler==3.11.0
 cryptography==44.0.2
 uvicorn[standard]
 fastapi[all]
 google-generativeai
-protobuf==3.19.6
+# protobuf==3.19.6
+protobuf>=4.25.8
